@@ -18,6 +18,7 @@ h1{font-size:24px;margin:8px 0 0;text-align:center}
 button{font:inherit;border:0;border-radius:12px;padding:14px;background:var(--ac);color:var(--ac2);font-weight:700;font-size:17px;cursor:pointer;width:100%}
 button.ghost{background:transparent;color:var(--tx);border:1px solid var(--bd)}
 button:active{transform:scale(.98)}
+button.armed{background:var(--good);color:#fff;border-color:transparent}
 .stepper{display:flex;align-items:center;justify-content:center;gap:18px;margin:10px 0}
 .stepper button{width:54px;padding:10px;font-size:26px}
 .stepper output{font-size:56px;font-weight:800;min-width:90px;text-align:center}
@@ -66,15 +67,15 @@ function build(n){
 function rnd(k){const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]%k}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]]}return a}
 function deal(n){
-  let last=null;try{last=JSON.parse(localStorage.getItem('ww_last'))}catch(e){}
+  let h=[];try{h=(JSON.parse(localStorage.getItem('ww_hist'))||[]).filter(x=>x.length==n)}catch(e){}
   const base=build(n);let best=null,bs=1e9;
   for(let t=0;t<3000;t++){
     const l=shuffle(base.slice());
-    const s=last&&last.length==n?l.filter((r,i)=>r==last[i]).length:0;
+    const s=h.length>=2?l.filter((r,i)=>r==h[0][i]&&r==h[1][i]).length:0;
     if(s<bs){bs=s;best=l}
     if(s==0)break;
   }
-  try{localStorage.setItem('ww_last',JSON.stringify(best))}catch(e){}
+  try{localStorage.setItem('ww_hist',JSON.stringify([best,...h].slice(0,2)))}catch(e){}
   return best;
 }
 function summary(list){
@@ -86,7 +87,7 @@ function chips(list){
 }
 function home(){
   const prev=build(n);
-  app.innerHTML=`<h1>🐺 狼人殺配置系統</h1><p class="sub">輸入人數，自動分配身分<br>同座位不會連續兩局抽到相同職業</p>
+  app.innerHTML=`<h1>🐺 狼人殺配置系統</h1><p class="sub">輸入人數，自動分配身分<br>同座位可連續兩局相同，但不會連續三局</p>
   <div class="card"><div class="stepper"><button class="ghost" id="m">−</button><output>${n}</output><button class="ghost" id="p">+</button></div>
   <input type="range" id="r" min="7" max="20" value="${n}">
   <p class="sub" style="margin-top:12px">本局配置</p>${chips(prev)}</div>
@@ -95,19 +96,20 @@ function home(){
   m.onclick=()=>set(n-1);p.onclick=()=>set(n+1);r.oninput=e=>set(+e.target.value);
   go.onclick=()=>{players=deal(n);idx=0;pass()};
 }
+function dbl(b,fn){const t=b.textContent;let on=false,tm;b.onclick=()=>{if(on){clearTimeout(tm);fn()}else{on=true;b.textContent='再點一次確認';b.classList.add('armed');tm=setTimeout(()=>{on=false;b.textContent=t;b.classList.remove('armed')},2500)}}}
 function pass(){
   app.innerHTML=`<h1>🔄 傳遞手機</h1><div class="bar"><i style="width:${idx/n*100}%"></i></div>
   <div class="card big"><p class="sub">請交給</p><div class="num">${idx+1}</div><p class="sub">號玩家</p>
   <p class="sub" style="margin-top:20px">確認只有本人在看螢幕</p></div>
   <button id="see">查看我的身分</button>`;
-  see.onclick=reveal;
+  dbl(see,reveal);
 }
 function reveal(){
   const r=players[idx],[c,d]=INFO[r],camp={wolf:"狼人陣營",god:"好人・神職",vil:"好人・平民"}[c];
   app.innerHTML=`<h1>${idx+1} 號玩家</h1>
   <div class="card big"><span class="camp bg-${c}">${camp}</span><div class="role ${c}">${r}</div><p class="desc">${d}</p></div>
   <button id="ok">${idx+1<n?"我記住了，隱藏並傳給下一位":"我記住了，完成發牌"}</button>`;
-  ok.onclick=()=>{idx++;idx<n?pass():done()};
+  dbl(ok,()=>{idx++;idx<n?pass():done()});
 }
 function done(){
   app.innerHTML=`<h1>✅ 發牌完成</h1><p class="sub">${n} 人已全部看完身分</p>
@@ -124,7 +126,7 @@ function hostView(){
     <button id="t" class="${show?"ghost":""}">${show?"隱藏身分":"顯示所有人身分"}</button>
     <div class="card ${show?"":"hide"}">${players.map((r,i)=>`<div class="row"><span>${i+1} 號</span><b class="${INFO[r][0]}">${r}</b></div>`).join("")}</div>
     <button class="ghost" id="rd">重新發牌（${n} 人）</button><button class="ghost" id="hm">回首頁</button>`;
-    t.onclick=()=>{show=!show;draw()};
+    dbl(t,()=>{show=!show;draw()});
     rd.onclick=()=>{players=deal(n);idx=0;pass()};hm.onclick=home;
   };draw();
 }
