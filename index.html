@@ -61,8 +61,21 @@ function build(n){
   for(let i=0;i<w;i++)list.push(i==0&&w>=4?"狼王":i==1&&w>=6?"白狼王":"狼人");
   list.push(...GODS.slice(0,g));
   for(let i=0;i<v;i++)list.push("村民");
-  for(let i=list.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[list[i],list[j]]=[list[j],list[i]]}
   return list;
+}
+function rnd(k){const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]%k}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]]}return a}
+function deal(n){
+  let last=null;try{last=JSON.parse(localStorage.getItem('ww_last'))}catch(e){}
+  const base=build(n);let best=null,bs=1e9;
+  for(let t=0;t<3000;t++){
+    const l=shuffle(base.slice());
+    const s=last&&last.length==n?l.filter((r,i)=>r==last[i]).length:0;
+    if(s<bs){bs=s;best=l}
+    if(s==0)break;
+  }
+  try{localStorage.setItem('ww_last',JSON.stringify(best))}catch(e){}
+  return best;
 }
 function summary(list){
   const m={};list.forEach(r=>m[r]=(m[r]||0)+1);
@@ -73,14 +86,14 @@ function chips(list){
 }
 function home(){
   const prev=build(n);
-  app.innerHTML=`<h1>🐺 狼人殺配置系統</h1><p class="sub">輸入人數，自動分配身分</p>
+  app.innerHTML=`<h1>🐺 狼人殺配置系統</h1><p class="sub">輸入人數，自動分配身分<br>同座位不會連續兩局抽到相同職業</p>
   <div class="card"><div class="stepper"><button class="ghost" id="m">−</button><output>${n}</output><button class="ghost" id="p">+</button></div>
   <input type="range" id="r" min="7" max="20" value="${n}">
   <p class="sub" style="margin-top:12px">本局配置</p>${chips(prev)}</div>
   <button id="go">開始發牌</button>`;
   const set=v=>{n=Math.max(7,Math.min(20,v));home()};
   m.onclick=()=>set(n-1);p.onclick=()=>set(n+1);r.oninput=e=>set(+e.target.value);
-  go.onclick=()=>{players=build(n);idx=0;pass()};
+  go.onclick=()=>{players=deal(n);idx=0;pass()};
 }
 function pass(){
   app.innerHTML=`<h1>🔄 傳遞手機</h1><div class="bar"><i style="width:${idx/n*100}%"></i></div>
@@ -112,7 +125,7 @@ function hostView(){
     <div class="card ${show?"":"hide"}">${players.map((r,i)=>`<div class="row"><span>${i+1} 號</span><b class="${INFO[r][0]}">${r}</b></div>`).join("")}</div>
     <button class="ghost" id="rd">重新發牌（${n} 人）</button><button class="ghost" id="hm">回首頁</button>`;
     t.onclick=()=>{show=!show;draw()};
-    rd.onclick=()=>{players=build(n);idx=0;pass()};hm.onclick=home;
+    rd.onclick=()=>{players=deal(n);idx=0;pass()};hm.onclick=home;
   };draw();
 }
 home();
