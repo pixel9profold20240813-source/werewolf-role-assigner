@@ -18,6 +18,8 @@ h1{font-size:24px;margin:8px 0 0;text-align:center}
 button{font:inherit;border:0;border-radius:12px;padding:14px;background:var(--ac);color:var(--ac2);font-weight:700;font-size:17px;cursor:pointer;width:100%}
 button.ghost{background:transparent;color:var(--tx);border:1px solid var(--bd)}
 button:active{transform:scale(.98)}
+button:disabled{opacity:.4}
+button.sm{width:42px;padding:6px;font-size:20px}
 button.armed{background:var(--good);color:#fff;border-color:transparent}
 .stepper{display:flex;align-items:center;justify-content:center;gap:18px;margin:10px 0}
 .stepper button{width:54px;padding:10px;font-size:26px}
@@ -55,14 +57,21 @@ const INFO={
 "守墓人":["god","每晚得知前一天被投票出局者是好人或狼人。"],
 "村民":["vil","沒有特殊能力，靠發言與投票找出狼人。"]};
 const GODS=["預言家","女巫","獵人","守衛","白痴","騎士","守墓人"];
-let n=9,players=[],idx=0,app=document.getElementById("app");
+const ALL=["狼人","狼王","白狼王",...GODS,"村民"];
+let n=9,players=[],idx=0,custom=null,adv=false,app=document.getElementById("app");
 
-function build(n){
+function defList(n){
   const w=Math.floor(n/3),g=3+Math.floor((n-7)/3),v=n-w-g,list=[];
   for(let i=0;i<w;i++)list.push(i==0&&w>=4?"狼王":i==1&&w>=6?"白狼王":"狼人");
   list.push(...GODS.slice(0,g));
   for(let i=0;i<v;i++)list.push("村民");
   return list;
+}
+function defCounts(n){const c={};defList(n).forEach(r=>c[r]=(c[r]||0)+1);return c}
+function build(n){const c=custom||defCounts(n),l=[];ALL.forEach(r=>{for(let i=0;i<(c[r]||0);i++)l.push(r)});return l}
+function advPanel(){
+  const c=custom,tot=build(n).length;
+  return `<div class="card"><p class="sub" style="margin-bottom:6px">合計 <b class="${tot==n?"vil":"wolf"}">${tot}</b> / ${n} 人</p>`+ALL.map(r=>`<div class="row"><b class="${INFO[r][0]}">${r}</b><span style="display:flex;align-items:center;gap:12px"><button class="ghost sm" data-r="${r}" data-d="-1">−</button><b style="min-width:20px;text-align:center">${c[r]||0}</b><button class="ghost sm" data-r="${r}" data-d="1">+</button></span></div>`).join("")+`<button class="ghost" id="rs" style="margin-top:12px">重設為預設配置</button></div>`;
 }
 function rnd(k){const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]%k}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]]}return a}
@@ -86,14 +95,17 @@ function chips(list){
   return '<div class="chips">'+summary(list).map(([r,c])=>`<span class="chip ${INFO[r][0]}">${r} × ${c}</span>`).join("")+'</div>';
 }
 function home(){
-  const prev=build(n);
+  const prev=build(n),ok2=prev.length==n;
   app.innerHTML=`<h1>🐺 狼人殺配置系統</h1><p class="sub">輸入人數，自動分配身分<br>同座位可連續兩局相同，但不會連續三局</p>
   <div class="card"><div class="stepper"><button class="ghost" id="m">−</button><output>${n}</output><button class="ghost" id="p">+</button></div>
   <input type="range" id="r" min="7" max="20" value="${n}">
   <p class="sub" style="margin-top:12px">本局配置</p>${chips(prev)}</div>
-  <button id="go">開始發牌</button>`;
-  const set=v=>{n=Math.max(7,Math.min(20,v));home()};
+  <button class="ghost" id="advb">${adv?"收起進階設定":"進階設定：自訂職業數量"}</button>${adv?advPanel():""}
+  <button id="go" ${ok2?"":"disabled"}>${ok2?"開始發牌":"人數不符，請調整職業數量"}</button>`;
+  const set=v=>{const o=n;n=Math.max(7,Math.min(20,v));if(custom)custom["村民"]=Math.max(0,(custom["村民"]||0)+n-o);home()};
   m.onclick=()=>set(n-1);p.onclick=()=>set(n+1);r.oninput=e=>set(+e.target.value);
+  advb.onclick=()=>{adv=!adv;if(adv&&!custom)custom=defCounts(n);home()};
+  if(adv){document.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{const k=b.dataset.r;custom[k]=Math.max(0,Math.min(n,(custom[k]||0)+(+b.dataset.d)));home()});rs.onclick=()=>{custom=defCounts(n);home()}}
   go.onclick=()=>{players=deal(n);idx=0;pass()};
 }
 function dbl(b,fn){const t=b.textContent;let on=false,tm;b.onclick=()=>{if(on){clearTimeout(tm);fn()}else{on=true;b.textContent='再點一次確認';b.classList.add('armed');tm=setTimeout(()=>{on=false;b.textContent=t;b.classList.remove('armed')},2500)}}}
