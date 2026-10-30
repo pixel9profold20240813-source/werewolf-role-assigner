@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>狼人殺配置系統</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f4f1ea;--card:#fff;--tx:#1d1b18;--sub:#6b665e;--ac:#b3261e;--ac2:#fff;--bd:#ddd6c8;--good:#1f7a4d;--wolf:#b3261e;--god:#2b5fb8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#14161a;--card:#1f2228;--tx:#eceae6;--sub:#9a968f;--ac:#e5534b;--ac2:#fff;--bd:#33373f;--good:#4cc38a;--wolf:#ff6b63;--god:#6ea1ff}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#14161a;--card:#1f2228;--tx:#eceae6;--sub:#9a968f;--ac:#e5534b;--ac2:#fff;--bd:#33373f;--good:#4cc38a;--wolf:#ff6b63;--god:#6ea1ff}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--tx);font-family:-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;display:flex;justify-content:center}
+main{width:100%;max-width:480px;padding:20px 16px 32px;box-sizing:border-box;display:flex;flex-direction:column;gap:14px}
+h1{font-size:24px;margin:8px 0 0;text-align:center}
+.sub{color:var(--sub);text-align:center;font-size:14px;margin:0}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:18px}
+button{font:inherit;border:0;border-radius:12px;padding:14px;background:var(--ac);color:var(--ac2);font-weight:700;font-size:17px;cursor:pointer;width:100%}
+button.ghost{background:transparent;color:var(--tx);border:1px solid var(--bd)}
+button:active{transform:scale(.98)}
+.stepper{display:flex;align-items:center;justify-content:center;gap:18px;margin:10px 0}
+.stepper button{width:54px;padding:10px;font-size:26px}
+.stepper output{font-size:56px;font-weight:800;min-width:90px;text-align:center}
+input[type=range]{width:100%;accent-color:var(--ac)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{padding:6px 12px;border-radius:999px;border:1px solid var(--bd);font-size:14px}
+.big{text-align:center;padding:36px 18px}
+.big .num{font-size:72px;font-weight:800;line-height:1}
+.role{font-size:52px;font-weight:800;margin:6px 0}
+.camp{display:inline-block;padding:4px 14px;border-radius:999px;font-size:14px;font-weight:700;color:#fff}
+.wolf{color:var(--wolf)}.god{color:var(--god)}.vil{color:var(--good)}
+.bg-wolf{background:var(--wolf)}.bg-god{background:var(--god)}.bg-vil{background:var(--good)}
+.desc{color:var(--sub);margin:14px 0 4px;line-height:1.6}
+.row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--bd)}
+.row:last-child{border:0}
+.hide{display:none}
+.bar{height:6px;background:var(--bd);border-radius:3px;overflow:hidden;margin-top:10px}
+.bar i{display:block;height:100%;background:var(--ac)}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+const INFO={
+"狼人":["wolf","每晚與同伴討論並殺死一名玩家。白天隱藏身分，誤導好人。"],
+"狼王":["wolf","狼人陣營。被票出局或夜晚被殺時，可開槍帶走一名玩家（被毒除外）。"],
+"白狼王":["wolf","狼人陣營。白天發言時可自爆並帶走一名玩家。"],
+"預言家":["god","每晚可查驗一名玩家是好人或狼人。"],
+"女巫":["god","擁有一瓶解藥與一瓶毒藥，各用一次，同夜不可同時使用。"],
+"獵人":["god","被票出局或夜晚被殺時可開槍帶走一人（被毒除外）。"],
+"守衛":["god","每晚守護一名玩家使其免於狼刀，不可連續兩晚守同一人。"],
+"白痴":["god","被票出局時可翻牌免死，但之後失去投票權。"],
+"騎士":["god","白天可翻牌決鬥一名玩家：對方是狼則其出局，否則騎士出局。"],
+"守墓人":["god","每晚得知前一天被投票出局者是好人或狼人。"],
+"村民":["vil","沒有特殊能力，靠發言與投票找出狼人。"]};
+const GODS=["預言家","女巫","獵人","守衛","白痴","騎士","守墓人"];
+let n=9,players=[],idx=0,app=document.getElementById("app");
+
+function build(n){
+  const w=Math.floor(n/3),g=3+Math.floor((n-7)/3),v=n-w-g,list=[];
+  for(let i=0;i<w;i++)list.push(i==0&&w>=4?"狼王":i==1&&w>=6?"白狼王":"狼人");
+  list.push(...GODS.slice(0,g));
+  for(let i=0;i<v;i++)list.push("村民");
+  for(let i=list.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[list[i],list[j]]=[list[j],list[i]]}
+  return list;
+}
+function summary(list){
+  const m={};list.forEach(r=>m[r]=(m[r]||0)+1);
+  return Object.entries(m).sort((a,b)=>"wolf god vil".indexOf(INFO[a[0]][0])-"wolf god vil".indexOf(INFO[b[0]][0]));
+}
+function chips(list){
+  return '<div class="chips">'+summary(list).map(([r,c])=>`<span class="chip ${INFO[r][0]}">${r} × ${c}</span>`).join("")+'</div>';
+}
+function home(){
+  const prev=build(n);
+  app.innerHTML=`<h1>🐺 狼人殺配置系統</h1><p class="sub">輸入人數，自動分配身分</p>
+  <div class="card"><div class="stepper"><button class="ghost" id="m">−</button><output>${n}</output><button class="ghost" id="p">+</button></div>
+  <input type="range" id="r" min="7" max="20" value="${n}">
+  <p class="sub" style="margin-top:12px">本局配置</p>${chips(prev)}</div>
+  <button id="go">開始發牌</button>`;
+  const set=v=>{n=Math.max(7,Math.min(20,v));home()};
+  m.onclick=()=>set(n-1);p.onclick=()=>set(n+1);r.oninput=e=>set(+e.target.value);
+  go.onclick=()=>{players=build(n);idx=0;pass()};
+}
+function pass(){
+  app.innerHTML=`<h1>🔄 傳遞手機</h1><div class="bar"><i style="width:${idx/n*100}%"></i></div>
+  <div class="card big"><p class="sub">請交給</p><div class="num">${idx+1}</div><p class="sub">號玩家</p>
+  <p class="sub" style="margin-top:20px">確認只有本人在看螢幕</p></div>
+  <button id="see">查看我的身分</button>`;
+  see.onclick=reveal;
+}
+function reveal(){
+  const r=players[idx],[c,d]=INFO[r],camp={wolf:"狼人陣營",god:"好人・神職",vil:"好人・平民"}[c];
+  app.innerHTML=`<h1>${idx+1} 號玩家</h1>
+  <div class="card big"><span class="camp bg-${c}">${camp}</span><div class="role ${c}">${r}</div><p class="desc">${d}</p></div>
+  <button id="ok">${idx+1<n?"我記住了，隱藏並傳給下一位":"我記住了，完成發牌"}</button>`;
+  ok.onclick=()=>{idx++;idx<n?pass():done()};
+}
+function done(){
+  app.innerHTML=`<h1>✅ 發牌完成</h1><p class="sub">${n} 人已全部看完身分</p>
+  <div class="card big"><p class="sub">請將手機交給主持人</p></div>
+  <button id="host">進入主持人區</button><button class="ghost" id="again">重新開始</button>`;
+  host.onclick=hostView;again.onclick=home;
+}
+function hostView(){
+  const wolves=players.filter(r=>INFO[r][0]=="wolf").length;
+  let show=false;
+  const draw=()=>{
+    app.innerHTML=`<h1>🎙️ 主持人區</h1>
+    <div class="card"><b>${n} 人</b>　狼 ${wolves}　神 ${players.filter(r=>INFO[r][0]=="god").length}　民 ${players.filter(r=>INFO[r][0]=="vil").length}${chips(players)}</div>
+    <button id="t" class="${show?"ghost":""}">${show?"隱藏身分":"顯示所有人身分"}</button>
+    <div class="card ${show?"":"hide"}">${players.map((r,i)=>`<div class="row"><span>${i+1} 號</span><b class="${INFO[r][0]}">${r}</b></div>`).join("")}</div>
+    <button class="ghost" id="rd">重新發牌（${n} 人）</button><button class="ghost" id="hm">回首頁</button>`;
+    t.onclick=()=>{show=!show;draw()};
+    rd.onclick=()=>{players=build(n);idx=0;pass()};hm.onclick=home;
+  };draw();
+}
+home();
+</script>
+</body>
+</html>
